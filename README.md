@@ -227,13 +227,6 @@ python -m pytest tests/test_pipeline.py -v
 - [ ] Advanced validation rules engine
 - [ ] Model performance benchmarking
 
-## 📝 License
-
-MIT License - See LICENSE file for details
-
-## 👥 Contributing
-
-Contributions welcome! Please open an issue or submit a PR.
 
 ## 📞 Support
 
