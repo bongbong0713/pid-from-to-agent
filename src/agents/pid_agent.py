@@ -1,0 +1,301 @@
+"""Main LangChain agent for P&ID analysis."""
+
+import os
+import json
+from typing import Dict, Any, Optional
+from pathlib import Path
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+import cv2
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.tools import tool
+from langgraph.graph import StateGraph, END
+from langgraph.graph import START
+
+from src.utils.logger import setup_logger
+from src.ocr.paddle_ocr import PaddleOCRExtractor
+from src.vision.preprocessing import ImagePreprocessor
+from src.vision.pipe_detector import PipeDetector
+from src.vision.equipment_detector import EquipmentDetector
+from src.graph.graph_builder import GraphBuilder
+from src.graph.tracer import PIDTracer
+from src.agents.prompts import PID_ANALYSIS_PROMPT, PIPE_IDENTIFICATION_PROMPT
+
+logger = setup_logger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+
+class PIDResult(BaseModel):
+    """Structured output for P&ID analysis."""
+    pipe: str = Field(..., description="Pipe label")
+    from_equipment: str = Field(alias="from", description="Source equipment label")
+    to_equipment: str = Field(alias="to", description="Destination equipment label")
+    confidence: float = Field(..., description="Confidence score (0-1)")
+    reasoning: Optional[str] = Field(None, description="Analysis reasoning")
+    processing_time_ms: Optional[float] = Field(None, description="Processing time in milliseconds")
+
+    class Config:
+        allow_population_by_field_name = True
+        json_schema_extra = {
+            "example": {
+                "pipe": "P-101",
+                "from": "E-3118",
+                "to": "T-201",
+                "confidence": 0.92,
+                "reasoning": "P-101 connects E-3118 (Reactor) to T-201 (Storage Tank)",
+                "processing_time_ms": 2341
+            }
+        }
+
+
+class PIDAgent:
+    """Main agent for P&ID analysis using LangChain and LangGraph."""
+
+    def __init__(self, model_name: str = None):
+        """
+        Initialize PID Agent.
+
+        Args:
+            model_name: Gemini model name (default: gemini-2.5-flash)
+        """
+        self.model_name = model_name or os.getenv("MODEL_NAME", "gemini-2.5-flash")
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable not set")
+
+        # Initialize components
+        self.llm = ChatGoogleGenerativeAI(
+            model=self.model_name,
+            api_key=self.api_key,
+        )
+        self.ocr_extractor = PaddleOCRExtractor()
+        self.pipe_detector = PipeDetector()
+        self.equipment_detector = EquipmentDetector()
+        self.graph_builder = GraphBuilder()
+        self.tracer = None
+
+        # Build workflow
+        self.workflow = self._build_workflow()
+        logger.info(f"Initialized PIDAgent with model: {self.model_name}")
+
+    def _build_workflow(self):
+        """
+        Build LangGraph workflow.
+
+        Returns:
+            Compiled workflow graph
+        """
+        # Define state schema
+        class AgentState(BaseModel):
+            image_path: str
+            target_pipe: str
+            ocr_results: Optional[Dict] = None
+            equipment: Optional[list] = None
+            pipes: Optional[Dict] = None
+            graph: Optional[Dict] = None
+            analysis: Optional[str] = None
+            result: Optional[PIDResult] = None
+            error: Optional[str] = None
+
+        # Define workflow nodes
+        def load_image_node(state: AgentState) -> AgentState:
+            """Load and preprocess image."""
+            try:
+                logger.info(f"Loading image: {state.image_path}")
+                image = ImagePreprocessor.load_image(state.image_path)
+                state.image = image  # Store for later use
+                return state
+            except Exception as e:
+                logger.error(f"Error loading image: {e}")
+                state.error = str(e)
+                return state
+
+        def ocr_node(state: AgentState) -> AgentState:
+            """Extract text using OCR."""
+            try:
+                logger.info("Running OCR extraction")
+                ocr_results = self.ocr_extractor.extract_text(state.image_path)
+                state.ocr_results = ocr_results
+                return state
+            except Exception as e:
+                logger.error(f"Error in OCR: {e}")
+                state.error = str(e)
+                return state
+
+        def equipment_detection_node(state: AgentState) -> AgentState:
+            """Detect equipment labels."""
+            try:
+                logger.info("Detecting equipment")
+                equipment = self.equipment_detector.detect_equipment(state.image_path)
+                state.equipment = equipment
+                return state
+            except Exception as e:
+                logger.error(f"Error in equipment detection: {e}")
+                state.error = str(e)
+                return state
+
+        def pipe_detection_node(state: AgentState) -> AgentState:
+            """Detect pipes."""
+            try:
+                logger.info("Detecting pipes")
+                image = ImagePreprocessor.load_image(state.image_path)
+                pipes = self.pipe_detector.detect_pipes(image)
+                state.pipes = pipes
+                return state
+            except Exception as e:
+                logger.error(f"Error in pipe detection: {e}")
+                state.error = str(e)
+                return state
+
+        def graph_construction_node(state: AgentState) -> AgentState:
+            """Build graph from detected elements."""
+            try:
+                logger.info("Building graph")
+                if state.equipment and state.pipes:
+                    self.graph_builder.build_from_detection(
+                        state.equipment,
+                        state.pipes["lines"],
+                        state.pipes["intersections"],
+                    )
+                    self.tracer = PIDTracer(self.graph_builder.graph)
+                    state.graph = self.graph_builder.to_dict()
+                return state
+            except Exception as e:
+                logger.error(f"Error in graph construction: {e}")
+                state.error = str(e)
+                return state
+
+        def reasoning_node(state: AgentState) -> AgentState:
+            """Use LLM for reasoning."""
+            try:
+                logger.info("Running LLM reasoning")
+
+                # First try graph-based tracing
+                trace_result = self.tracer.trace_pipe_connections(state.target_pipe)
+
+                if trace_result.get("error"):
+                    # Fall back to LLM analysis
+                    equipment_str = json.dumps(
+                        state.equipment, indent=2, default=str
+                    ) if state.equipment else "None"
+                    pipes_str = json.dumps(
+                        {k: v for k, v in state.pipes.items() if k != "preprocessed_image"},
+                        indent=2,
+                        default=str,
+                    ) if state.pipes else "None"
+
+                    analysis_prompt = PIPE_IDENTIFICATION_PROMPT.format(
+                        pipe_label=state.target_pipe,
+                        equipment_details=equipment_str,
+                        pipe_details=pipes_str,
+                    )
+
+                    response = self.llm.invoke(analysis_prompt)
+                    state.analysis = response.content
+                else:
+                    state.analysis = json.dumps(trace_result)
+
+                return state
+            except Exception as e:
+                logger.error(f"Error in reasoning: {e}")
+                state.error = str(e)
+                return state
+
+        def output_node(state: AgentState) -> AgentState:
+            """Generate final output."""
+            try:
+                logger.info("Generating output")
+
+                if state.error:
+                    state.result = {
+                        "error": state.error
+                    }
+                else:
+                    # Parse analysis
+                    try:
+                        analysis_dict = json.loads(state.analysis)
+                    except:
+                        analysis_dict = {}
+
+                    state.result = {
+                        "pipe": state.target_pipe,
+                        "from": analysis_dict.get("from", "Unknown"),
+                        "to": analysis_dict.get("to", "Unknown"),
+                        "confidence": analysis_dict.get("confidence", 0.5),
+                        "reasoning": analysis_dict.get("reasoning", state.analysis),
+                    }
+
+                return state
+            except Exception as e:
+                logger.error(f"Error in output: {e}")
+                state.result = {"error": str(e)}
+                return state
+
+        # Build graph
+        workflow = StateGraph(AgentState)
+
+        workflow.add_node("load_image", load_image_node)
+        workflow.add_node("ocr", ocr_node)
+        workflow.add_node("equipment_detection", equipment_detection_node)
+        workflow.add_node("pipe_detection", pipe_detection_node)
+        workflow.add_node("graph_construction", graph_construction_node)
+        workflow.add_node("reasoning", reasoning_node)
+        workflow.add_node("output", output_node)
+
+        # Add edges
+        workflow.add_edge(START, "load_image")
+        workflow.add_edge("load_image", "ocr")
+        workflow.add_edge("ocr", "equipment_detection")
+        workflow.add_edge("equipment_detection", "pipe_detection")
+        workflow.add_edge("pipe_detection", "graph_construction")
+        workflow.add_edge("graph_construction", "reasoning")
+        workflow.add_edge("reasoning", "output")
+        workflow.add_edge("output", END)
+
+        return workflow.compile()
+
+    def identify_pipe_from_to(
+        self,
+        image_path: str,
+        target_pipe: str,
+    ) -> Dict[str, Any]:
+        """
+        Identify FROM and TO equipment for a target pipe.
+
+        Args:
+            image_path: Path to the P&ID image
+            target_pipe: Label of the pipe to identify
+
+        Returns:
+            Dictionary with pipe, from, to, and confidence
+        """
+        import time
+        start_time = time.time()
+
+        try:
+            logger.info(f"Identifying pipe: {target_pipe}")
+
+            # Run workflow
+            result = self.workflow.invoke({
+                "image_path": image_path,
+                "target_pipe": target_pipe,
+            })
+
+            processing_time_ms = (time.time() - start_time) * 1000
+
+            output = result.get("result", {})
+            output["processing_time_ms"] = processing_time_ms
+
+            logger.info(f"Completed pipe identification in {processing_time_ms:.2f}ms")
+            return output
+
+        except Exception as e:
+            logger.error(f"Error identifying pipe: {e}")
+            return {
+                "error": str(e),
+                "pipe": target_pipe,
+            }

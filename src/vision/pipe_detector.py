@@ -1,0 +1,281 @@
+"""Pipe detection module using OpenCV."""
+
+import cv2
+import numpy as np
+from typing import List, Tuple, Dict, Any
+from src.utils.logger import setup_logger
+from src.vision.preprocessing import ImagePreprocessor
+
+logger = setup_logger(__name__)
+
+
+class PipeDetector:
+    """Detect pipe line segments in P&ID diagrams."""
+
+    def __init__(
+        self,
+        canny_threshold1: float = 50,
+        canny_threshold2: float = 150,
+        hough_rho: float = 1.0,
+        hough_theta: float = np.pi / 180,
+        hough_threshold: int = 50,
+        hough_min_length: float = 30,
+        hough_max_gap: float = 10,
+    ):
+        """
+        Initialize pipe detector.
+
+        Args:
+            canny_threshold1: Lower threshold for Canny edge detection
+            canny_threshold2: Upper threshold for Canny edge detection
+            hough_rho: Distance resolution in pixels
+            hough_theta: Angle resolution in radians
+            hough_threshold: Minimum number of votes
+            hough_min_length: Minimum line length
+            hough_max_gap: Maximum gap between line segments
+        """
+        self.canny_threshold1 = canny_threshold1
+        self.canny_threshold2 = canny_threshold2
+        self.hough_rho = hough_rho
+        self.hough_theta = hough_theta
+        self.hough_threshold = hough_threshold
+        self.hough_min_length = hough_min_length
+        self.hough_max_gap = hough_max_gap
+
+    def detect_edges(self, image: np.ndarray) -> np.ndarray:
+        """
+        Detect edges using Canny edge detection.
+
+        Args:
+            image: Preprocessed grayscale image
+
+        Returns:
+            Edge map
+        """
+        edges = cv2.Canny(
+            image,
+            self.canny_threshold1,
+            self.canny_threshold2,
+        )
+        logger.info("Detected edges using Canny edge detection")
+        return edges
+
+    def detect_lines(
+        self,
+        image: np.ndarray,
+        use_hough_p: bool = True,
+    ) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
+        """
+        Detect line segments.
+
+        Args:
+            image: Preprocessed grayscale image
+            use_hough_p: Whether to use HoughLinesP (True) or HoughLines (False)
+
+        Returns:
+            List of line segments as ((x1, y1), (x2, y2))
+        """
+        # Detect edges
+        edges = self.detect_edges(image)
+
+        if use_hough_p:
+            # HoughLinesP for line segments
+            lines = cv2.HoughLinesP(
+                edges,
+                self.hough_rho,
+                self.hough_theta,
+                self.hough_threshold,
+                minLineLength=self.hough_min_length,
+                maxLineGap=self.hough_max_gap,
+            )
+        else:
+            # HoughLines for infinite lines
+            lines = cv2.HoughLines(
+                edges,
+                self.hough_rho,
+                self.hough_theta,
+                self.hough_threshold,
+            )
+
+        line_segments = []
+        if lines is not None:
+            for line in lines:
+                if use_hough_p:
+                    x1, y1, x2, y2 = line[0]
+                    line_segments.append(((x1, y1), (x2, y2)))
+                else:
+                    rho, theta = line[0]
+                    a, b = np.cos(theta), np.sin(theta)
+                    x0, y0 = a * rho, b * rho
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * (a))
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * (a))
+                    line_segments.append(((x1, y1), (x2, y2)))
+
+        logger.info(f"Detected {len(line_segments)} line segments")
+        return line_segments
+
+    def filter_lines_by_length(
+        self,
+        lines: List[Tuple[Tuple[int, int], Tuple[int, int]]],
+        min_length: float = 30,
+        max_length: float = None,
+    ) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
+        """
+        Filter lines by length.
+
+        Args:
+            lines: List of line segments
+            min_length: Minimum line length
+            max_length: Maximum line length (None for no limit)
+
+        Returns:
+            Filtered line segments
+        """
+        filtered = []
+        for (x1, y1), (x2, y2) in lines:
+            length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            if length >= min_length:
+                if max_length is None or length <= max_length:
+                    filtered.append(((x1, y1), (x2, y2)))
+        logger.info(f"Filtered to {len(filtered)} lines (length: {min_length}-{max_length})")
+        return filtered
+
+    def detect_intersections(
+        self,
+        lines: List[Tuple[Tuple[int, int], Tuple[int, int]]],
+        distance_threshold: float = 5,
+    ) -> List[Tuple[float, float]]:
+        """
+        Detect intersection points between line segments.
+
+        Args:
+            lines: List of line segments
+            distance_threshold: Maximum distance to consider as intersection
+
+        Returns:
+            List of intersection points (x, y)
+        """
+        intersections = []
+
+        for i, ((x1_1, y1_1), (x2_1, y2_1)) in enumerate(lines):
+            for (x1_2, y1_2), (x2_2, y2_2) in lines[i + 1 :]:
+                # Calculate intersection point
+                x_int, y_int = self._line_intersection(
+                    (x1_1, y1_1), (x2_1, y2_1),
+                    (x1_2, y1_2), (x2_2, y2_2),
+                )
+
+                if x_int is not None:
+                    intersections.append((x_int, y_int))
+
+        logger.info(f"Detected {len(intersections)} intersection points")
+        return intersections
+
+    @staticmethod
+    def _line_intersection(
+        p1: Tuple[float, float],
+        p2: Tuple[float, float],
+        p3: Tuple[float, float],
+        p4: Tuple[float, float],
+    ) -> Tuple[float, float]:
+        """
+        Calculate intersection of two line segments.
+
+        Args:
+            p1, p2: Endpoints of first line
+            p3, p4: Endpoints of second line
+
+        Returns:
+            Intersection point (x, y) or (None, None) if no intersection
+        """
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = p3
+        x4, y4 = p4
+
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(denom) < 1e-10:
+            return None, None
+
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+
+        if 0 <= t <= 1 and 0 <= u <= 1:
+            x = x1 + t * (x2 - x1)
+            y = y1 + t * (y2 - y1)
+            return x, y
+
+        return None, None
+
+    def detect_pipes(
+        self,
+        image: np.ndarray,
+    ) -> Dict[str, Any]:
+        """
+        Complete pipe detection pipeline.
+
+        Args:
+            image: Input image (BGR)
+
+        Returns:
+            Dictionary containing:
+                - lines: Detected line segments
+                - intersections: Detected intersection points
+                - edges: Edge map
+        """
+        # Preprocess
+        preprocessed = ImagePreprocessor.preprocess_for_detection(image)
+
+        # Detect lines
+        lines = self.detect_lines(preprocessed)
+
+        # Detect intersections
+        intersections = self.detect_intersections(lines)
+
+        # Get edges for visualization
+        edges = self.detect_edges(preprocessed)
+
+        return {
+            "lines": lines,
+            "intersections": intersections,
+            "edges": edges,
+            "preprocessed_image": preprocessed,
+        }
+
+    def visualize_pipes(
+        self,
+        image: np.ndarray,
+        lines: List[Tuple[Tuple[int, int], Tuple[int, int]]],
+        intersections: List[Tuple[float, float]] = None,
+        output_path: str = None,
+    ) -> np.ndarray:
+        """
+        Visualize detected pipes.
+
+        Args:
+            image: Original image (BGR)
+            lines: Detected line segments
+            intersections: Intersection points (optional)
+            output_path: Path to save visualization (optional)
+
+        Returns:
+            Visualization image
+        """
+        vis_image = image.copy()
+
+        # Draw lines
+        for (x1, y1), (x2, y2) in lines:
+            cv2.line(vis_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        # Draw intersections
+        if intersections:
+            for x, y in intersections:
+                cv2.circle(vis_image, (int(x), int(y)), 5, (0, 0, 255), -1)
+
+        if output_path:
+            cv2.imwrite(output_path, vis_image)
+            logger.info(f"Saved pipe visualization to: {output_path}")
+
+        return vis_image
