@@ -16,8 +16,8 @@ A LangChain-based Vision Language Model (VLM) Agent that identifies the FROM and
         ┌──────────────────┬──────────────────┬──────────────────┐
         ↓                  ↓                  ↓                  ↓
   ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────┐
-  │  OCR Module  │ │ Pipe Detection │ │ Equipment    │ │ LLM VLM  │
-  │ (PaddleOCR)  │ │ (OpenCV)     │ │ Detector     │ │ (Gemini) │
+  │  OCR Module      │ │ Pipe Detection   │ │ Equipment        │ │ LLM VLM      │
+  │ (PaddleOCR)      │ │ (OpenCV)         │ │ Detector         │ │ (Gemini)     │
   └──────────────────┘ └──────────────────┘ └──────────────────┘ └──────────────┘
         ↓                  ↓                  ↓                  ↓
   ┌──────────────────────────────────────────────────────────────┐
