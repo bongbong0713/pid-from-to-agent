@@ -9,7 +9,7 @@ google-generativeai==0.4.0
 
 # OCR
 paddleocr==2.7.0.3
-paddle-bmi==0.2.1
+paddlepaddle==2.5.1
 
 # Computer Vision
 opencv-python==4.8.1.78

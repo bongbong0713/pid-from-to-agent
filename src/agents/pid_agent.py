@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import cv2
+import time
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
@@ -41,11 +42,11 @@ class PIDResult(BaseModel):
         allow_population_by_field_name = True
         json_schema_extra = {
             "example": {
-                "pipe": "P-101",
+                "pipe": "300-P-310305-NB01-HC",
                 "from": "E-3118",
-                "to": "T-201",
-                "confidence": 0.92,
-                "reasoning": "P-101 connects E-3118 (Reactor) to T-201 (Storage Tank)",
+                "to": "Off-page",
+                "confidence": 0.95,
+                "reasoning": "300-P-310305-NB01-HC connects E-3118 to an off-page connection",
                 "processing_time_ms": 2341
             }
         }
@@ -97,8 +98,8 @@ class PIDAgent:
             equipment: Optional[list] = None
             pipes: Optional[Dict] = None
             graph: Optional[Dict] = None
-            analysis: Optional[str] = None
-            result: Optional[PIDResult] = None
+            trace_result: Optional[Dict] = None
+            result: Optional[Dict] = None
             error: Optional[str] = None
 
         # Define workflow nodes
@@ -139,12 +140,13 @@ class PIDAgent:
                 return state
 
         def pipe_detection_node(state: AgentState) -> AgentState:
-            """Detect pipes."""
+            """Detect pipes and pipe labels."""
             try:
-                logger.info("Detecting pipes")
+                logger.info("Detecting pipes and pipe labels")
                 image = ImagePreprocessor.load_image(state.image_path)
-                pipes = self.pipe_detector.detect_pipes(image)
+                pipes = self.pipe_detector.detect_pipes(image, state.image_path)
                 state.pipes = pipes
+                logger.info(f"Detected {len(pipes.get('pipe_labels', []))} pipe labels")
                 return state
             except Exception as e:
                 logger.error(f"Error in pipe detection: {e}")
@@ -160,48 +162,29 @@ class PIDAgent:
                         state.equipment,
                         state.pipes["lines"],
                         state.pipes["intersections"],
+                        state.pipes.get("pipe_labels", []),
                     )
                     self.tracer = PIDTracer(self.graph_builder.graph)
                     state.graph = self.graph_builder.to_dict()
+                    logger.info(f"Graph: {len(state.graph['nodes'])} nodes, {len(state.graph['edges'])} edges")
                 return state
             except Exception as e:
                 logger.error(f"Error in graph construction: {e}")
                 state.error = str(e)
                 return state
 
-        def reasoning_node(state: AgentState) -> AgentState:
-            """Use LLM for reasoning."""
+        def tracing_node(state: AgentState) -> AgentState:
+            """Trace pipe connections."""
             try:
-                logger.info("Running LLM reasoning")
-
-                # First try graph-based tracing
-                trace_result = self.tracer.trace_pipe_connections(state.target_pipe)
-
-                if trace_result.get("error"):
-                    # Fall back to LLM analysis
-                    equipment_str = json.dumps(
-                        state.equipment, indent=2, default=str
-                    ) if state.equipment else "None"
-                    pipes_str = json.dumps(
-                        {k: v for k, v in state.pipes.items() if k != "preprocessed_image"},
-                        indent=2,
-                        default=str,
-                    ) if state.pipes else "None"
-
-                    analysis_prompt = PIPE_IDENTIFICATION_PROMPT.format(
-                        pipe_label=state.target_pipe,
-                        equipment_details=equipment_str,
-                        pipe_details=pipes_str,
-                    )
-
-                    response = self.llm.invoke(analysis_prompt)
-                    state.analysis = response.content
+                logger.info(f"Tracing pipe: {state.target_pipe}")
+                if self.tracer:
+                    trace_result = self.tracer.trace_pipe_connections(state.target_pipe)
+                    state.trace_result = trace_result
                 else:
-                    state.analysis = json.dumps(trace_result)
-
+                    state.trace_result = {"error": "Tracer not initialized"}
                 return state
             except Exception as e:
-                logger.error(f"Error in reasoning: {e}")
+                logger.error(f"Error in tracing: {e}")
                 state.error = str(e)
                 return state
 
@@ -212,27 +195,39 @@ class PIDAgent:
 
                 if state.error:
                     state.result = {
-                        "error": state.error
+                        "pipe": state.target_pipe,
+                        "from": "Unknown",
+                        "to": "Unknown",
+                        "confidence": 0.0,
+                        "error": state.error,
+                    }
+                elif state.trace_result:
+                    state.result = {
+                        "pipe": state.trace_result.get("pipe", state.target_pipe),
+                        "from": state.trace_result.get("from", "Unknown"),
+                        "to": state.trace_result.get("to", "Unknown"),
+                        "confidence": state.trace_result.get("confidence", 0.5),
+                        "reasoning": state.trace_result.get("reasoning"),
+                        "source": state.trace_result.get("source", "unknown"),
                     }
                 else:
-                    # Parse analysis
-                    try:
-                        analysis_dict = json.loads(state.analysis)
-                    except:
-                        analysis_dict = {}
-
                     state.result = {
                         "pipe": state.target_pipe,
-                        "from": analysis_dict.get("from", "Unknown"),
-                        "to": analysis_dict.get("to", "Unknown"),
-                        "confidence": analysis_dict.get("confidence", 0.5),
-                        "reasoning": analysis_dict.get("reasoning", state.analysis),
+                        "from": "Unknown",
+                        "to": "Unknown",
+                        "confidence": 0.0,
                     }
 
                 return state
             except Exception as e:
                 logger.error(f"Error in output: {e}")
-                state.result = {"error": str(e)}
+                state.result = {
+                    "pipe": state.target_pipe,
+                    "from": "Unknown",
+                    "to": "Unknown",
+                    "confidence": 0.0,
+                    "error": str(e),
+                }
                 return state
 
         # Build graph
@@ -243,7 +238,7 @@ class PIDAgent:
         workflow.add_node("equipment_detection", equipment_detection_node)
         workflow.add_node("pipe_detection", pipe_detection_node)
         workflow.add_node("graph_construction", graph_construction_node)
-        workflow.add_node("reasoning", reasoning_node)
+        workflow.add_node("tracing", tracing_node)
         workflow.add_node("output", output_node)
 
         # Add edges
@@ -252,8 +247,8 @@ class PIDAgent:
         workflow.add_edge("ocr", "equipment_detection")
         workflow.add_edge("equipment_detection", "pipe_detection")
         workflow.add_edge("pipe_detection", "graph_construction")
-        workflow.add_edge("graph_construction", "reasoning")
-        workflow.add_edge("reasoning", "output")
+        workflow.add_edge("graph_construction", "tracing")
+        workflow.add_edge("tracing", "output")
         workflow.add_edge("output", END)
 
         return workflow.compile()
@@ -273,7 +268,6 @@ class PIDAgent:
         Returns:
             Dictionary with pipe, from, to, and confidence
         """
-        import time
         start_time = time.time()
 
         try:
@@ -295,7 +289,12 @@ class PIDAgent:
 
         except Exception as e:
             logger.error(f"Error identifying pipe: {e}")
+            processing_time_ms = (time.time() - start_time) * 1000
             return {
-                "error": str(e),
                 "pipe": target_pipe,
+                "from": "Unknown",
+                "to": "Unknown",
+                "confidence": 0.0,
+                "error": str(e),
+                "processing_time_ms": processing_time_ms,
             }

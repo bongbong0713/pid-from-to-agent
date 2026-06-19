@@ -1,16 +1,25 @@
-"""Pipe detection module using OpenCV."""
+"""Pipe detection module using OpenCV and regex pattern matching."""
 
 import cv2
 import numpy as np
+import re
 from typing import List, Tuple, Dict, Any
 from src.utils.logger import setup_logger
 from src.vision.preprocessing import ImagePreprocessor
+from src.ocr.paddle_ocr import PaddleOCRExtractor
 
 logger = setup_logger(__name__)
 
 
 class PipeDetector:
-    """Detect pipe line segments in P&ID diagrams."""
+    """Detect pipe line segments and labels in P&ID diagrams."""
+
+    # Pipe label patterns (P&ID standard formats)
+    PIPE_LABEL_PATTERNS = [
+        r"\d{3}-P-\d{6}-[A-Z0-9]{2,}-[A-Z0-9]{2,}",  # e.g., 300-P-310305-NB01-HC
+        r"P-\d+",  # Simple format e.g., P-101
+        r"[A-Z]{2}-P-\d+",  # Format e.g., HC-P-101
+    ]
 
     def __init__(
         self,
@@ -41,6 +50,54 @@ class PipeDetector:
         self.hough_threshold = hough_threshold
         self.hough_min_length = hough_min_length
         self.hough_max_gap = hough_max_gap
+        self.ocr_extractor = PaddleOCRExtractor()
+
+    def detect_pipe_labels(
+        self,
+        image_path: str,
+        confidence_threshold: float = 0.5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Detect pipe labels using OCR and regex patterns.
+
+        Args:
+            image_path: Path to the image
+            confidence_threshold: Minimum OCR confidence
+
+        Returns:
+            List of detected pipe labels with metadata
+        """
+        # Extract all text regions
+        regions = self.ocr_extractor.extract_text_with_regions(
+            image_path, confidence_threshold
+        )
+
+        pipe_labels = []
+        for region in regions:
+            text = region["text"].strip()
+            # Check against pipe label patterns
+            if self._is_pipe_label(text):
+                region["type"] = "pipe"
+                pipe_labels.append(region)
+
+        logger.info(f"Detected {len(pipe_labels)} pipe labels")
+        return pipe_labels
+
+    def _is_pipe_label(self, text: str) -> bool:
+        """
+        Check if text matches pipe label patterns.
+
+        Args:
+            text: Text to check
+
+        Returns:
+            True if text matches a pipe label pattern
+        """
+        text = text.strip().upper()
+        for pattern in self.PIPE_LABEL_PATTERNS:
+            if re.match(pattern, text, re.IGNORECASE):
+                return True
+        return False
 
     def detect_edges(self, image: np.ndarray) -> np.ndarray:
         """
@@ -212,17 +269,20 @@ class PipeDetector:
     def detect_pipes(
         self,
         image: np.ndarray,
+        image_path: str = None,
     ) -> Dict[str, Any]:
         """
         Complete pipe detection pipeline.
 
         Args:
             image: Input image (BGR)
+            image_path: Path to image (for OCR pipe label detection)
 
         Returns:
             Dictionary containing:
                 - lines: Detected line segments
                 - intersections: Detected intersection points
+                - pipe_labels: Detected pipe labels
                 - edges: Edge map
         """
         # Preprocess
@@ -237,9 +297,15 @@ class PipeDetector:
         # Get edges for visualization
         edges = self.detect_edges(preprocessed)
 
+        # Detect pipe labels
+        pipe_labels = []
+        if image_path:
+            pipe_labels = self.detect_pipe_labels(image_path)
+
         return {
             "lines": lines,
             "intersections": intersections,
+            "pipe_labels": pipe_labels,
             "edges": edges,
             "preprocessed_image": preprocessed,
         }
@@ -249,15 +315,17 @@ class PipeDetector:
         image: np.ndarray,
         lines: List[Tuple[Tuple[int, int], Tuple[int, int]]],
         intersections: List[Tuple[float, float]] = None,
+        pipe_labels: List[Dict[str, Any]] = None,
         output_path: str = None,
     ) -> np.ndarray:
         """
-        Visualize detected pipes.
+        Visualize detected pipes and labels.
 
         Args:
             image: Original image (BGR)
             lines: Detected line segments
             intersections: Intersection points (optional)
+            pipe_labels: Pipe label regions (optional)
             output_path: Path to save visualization (optional)
 
         Returns:
@@ -273,6 +341,25 @@ class PipeDetector:
         if intersections:
             for x, y in intersections:
                 cv2.circle(vis_image, (int(x), int(y)), 5, (0, 0, 255), -1)
+
+        # Draw pipe labels
+        if pipe_labels:
+            for label in pipe_labels:
+                bbox = label["bbox"]
+                x_min = int(bbox["x_min"])
+                y_min = int(bbox["y_min"])
+                x_max = int(bbox["x_max"])
+                y_max = int(bbox["y_max"])
+                cv2.rectangle(vis_image, (x_min, y_min), (x_max, y_max), (255, 0, 255), 2)
+                cv2.putText(
+                    vis_image,
+                    label["text"],
+                    (x_min, y_min - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 255),
+                    1,
+                )
 
         if output_path:
             cv2.imwrite(output_path, vis_image)
