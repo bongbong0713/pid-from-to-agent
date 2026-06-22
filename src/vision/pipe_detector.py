@@ -74,9 +74,12 @@ class PipeDetector:
 
         pipe_labels = []
         for region in regions:
-            text = region["text"].strip()
+            raw = region["text"].strip()
+            # Normalize: remove extra spaces and uppercase
+            norm_text = re.sub(r"\s+", "", raw).upper()
+            region["text"] = norm_text
             # Check against pipe label patterns
-            if self._is_pipe_label(text):
+            if self._is_pipe_label(norm_text):
                 region["type"] = "pipe"
                 pipe_labels.append(region)
 

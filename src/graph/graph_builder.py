@@ -55,16 +55,18 @@ class GraphBuilder:
         Returns:
             Node ID
         """
-        node_id = f"eq_{label}"
+        # Normalize label for consistent matching
+        norm_label = label.strip().upper()
+        node_id = f"eq_{norm_label}"
         self.graph.add_node(
             node_id,
-            label=label,
+            label=norm_label,
             type=node_type,
             position=position,
             **metadata,
         )
-        self.equipment_nodes[label] = node_id
-        logger.info(f"Added equipment node: {label}")
+        self.equipment_nodes[norm_label] = node_id
+        logger.info(f"Added equipment node: {norm_label}")
         return node_id
 
     def add_pipe_node(
@@ -88,17 +90,19 @@ class GraphBuilder:
         Returns:
             Node ID
         """
-        node_id = f"pipe_{label}"
+        # Normalize pipe label to uppercase without extra spaces
+        norm_label = label.strip().upper()
+        node_id = f"pipe_{norm_label}"
         self.graph.add_node(
             node_id,
-            label=label,
+            label=norm_label,
             type=node_type,
             position=position,
             bbox=bbox,
             **metadata,
         )
-        self.pipe_nodes[label] = node_id
-        logger.info(f"Added pipe node: {label}")
+        self.pipe_nodes[norm_label] = node_id
+        logger.info(f"Added pipe node: {norm_label}")
         return node_id
 
     def add_line_node(

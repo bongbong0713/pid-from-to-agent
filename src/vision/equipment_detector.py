@@ -56,10 +56,23 @@ class EquipmentDetector:
             image_path, confidence_threshold
         )
 
-        # Classify equipment
+        # Classify equipment and normalize labels
         equipment = []
+        import re
         for region in regions:
-            equipment_type = self._classify_equipment(region["text"])
+            raw_text = region.get("text", "")
+            label = raw_text.strip().upper()
+
+            # Repair common OCR issues: leading dash or digits-only (e.g., "-3118" -> "E-3118")
+            if re.match(r"^-\d+$", label):
+                label = "E" + label
+            elif re.match(r"^\d{3,}$", label):
+                label = "E-" + label
+
+            # Update the region text to normalized label so GraphBuilder stores normalized labels
+            region["text"] = label
+
+            equipment_type = self._classify_equipment(label)
             if equipment_type:
                 region["type"] = equipment_type
                 equipment.append(region)
