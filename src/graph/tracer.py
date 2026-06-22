@@ -29,6 +29,30 @@ class PIDTracer:
         self.graph = graph
         logger.info("Initialized PIDTracer")
 
+    def _get_fallback_result(self, pipe_label: str) -> Optional[Dict]:
+        """
+        Return fallback mapping result for a pipe label if available.
+
+        Args:
+            pipe_label: Pipe label to look up
+
+        Returns:
+            Mapping dict or None
+        """
+        if pipe_label in FALLBACK_PIPE_MAPPING:
+            logger.info(f"Using fallback mapping for pipe: {pipe_label}")
+            mapping = FALLBACK_PIPE_MAPPING[pipe_label]
+            reasoning = f"{pipe_label} resolved via fallback mapping: {mapping['from']}->{mapping['to']}"
+            return {
+                "pipe": pipe_label,
+                "from": mapping["from"],
+                "to": mapping["to"],
+                "confidence": 0.95,
+                "source": "fallback_mapping",
+                "reasoning": reasoning,
+            }
+        return None
+
     def trace_pipe_connections(
         self,
         pipe_label: str,
@@ -42,17 +66,8 @@ class PIDTracer:
         Returns:
             Dictionary with from/to equipment and path details
         """
-        # Check fallback mapping first
-        if pipe_label in FALLBACK_PIPE_MAPPING:
-            logger.info(f"Using fallback mapping for pipe: {pipe_label}")
-            mapping = FALLBACK_PIPE_MAPPING[pipe_label]
-            return {
-                "pipe": pipe_label,
-                "from": mapping["from"],
-                "to": mapping["to"],
-                "confidence": 0.95,
-                "source": "fallback_mapping",
-            }
+        # Try graph tracing first
+        logger.info("Trying graph tracing first")
 
         # Find pipe node
         pipe_node = None
@@ -61,27 +76,48 @@ class PIDTracer:
                 pipe_node = node_id
                 break
 
-        if not pipe_node:
-            logger.warning(f"Pipe not found: {pipe_label}")
-            return {"error": f"Pipe not found: {pipe_label}"}
+        if pipe_node:
+            # Get upstream (from) equipment
+            from_equipment = self._trace_upstream(pipe_node)
 
-        # Get upstream (from) equipment
-        from_equipment = self._trace_upstream(pipe_node)
+            # Get downstream (to) equipment
+            to_equipment = self._trace_downstream(pipe_node)
 
-        # Get downstream (to) equipment
-        to_equipment = self._trace_downstream(pipe_node)
+            confidence = 0.7 if (from_equipment and to_equipment) else 0.5
 
-        result = {
-            "pipe": pipe_label,
-            "from": from_equipment or "Unknown",
-            "to": to_equipment or "Unknown",
-            "confidence": 0.7 if (from_equipment and to_equipment) else 0.5,
-            "pipe_node": pipe_node,
-            "source": "graph_tracing",
-        }
+            result = {
+                "pipe": pipe_label,
+                "from": from_equipment or "Unknown",
+                "to": to_equipment or "Unknown",
+                "confidence": confidence,
+                "pipe_node": pipe_node,
+            }
 
-        logger.info(f"Traced pipe {pipe_label}: {from_equipment} -> {to_equipment}")
-        return result
+            # If both endpoints found, prefer graph tracing
+            if from_equipment and to_equipment:
+                result["source"] = "graph_tracing"
+                logger.info(f"Traced pipe {pipe_label}: {from_equipment} -> {to_equipment}")
+                return result
+
+            # Graph tracing incomplete or low confidence -> try fallback
+            logger.warning("Graph tracing failed, using fallback mapping")
+            fallback = self._get_fallback_result(pipe_label)
+            if fallback:
+                return fallback
+            logger.warning("Fallback mapping not available")
+            return {
+                "error": f"Could not determine connections for {pipe_label}",
+                "pipe": pipe_label,
+            }
+
+        # Pipe node not found in graph: try fallback mapping
+        logger.warning(f"Pipe not found in graph: {pipe_label}, attempting fallback mapping")
+        fallback = self._get_fallback_result(pipe_label)
+        if fallback:
+            return fallback
+
+        logger.warning("Fallback mapping not available")
+        return {"error": f"Pipe not found: {pipe_label}"}
 
     def _trace_upstream(
         self,
