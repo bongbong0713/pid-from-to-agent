@@ -314,13 +314,34 @@ class PipeDetector:
         if image_path:
             pipe_labels = self.detect_pipe_labels(image_path)
 
+        # If OCR found nothing, retry with a lower confidence and include
+        # candidate OCR regions that look like pipe labels (relaxed rules).
+        if image_path and not pipe_labels:
+            logger.info("No OCR pipe labels with default threshold — retrying relaxed OCR")
+            try:
+                relaxed_regions = self.ocr_extractor.extract_text_with_regions(image_path, 0.3)
+            except Exception:
+                relaxed_regions = []
+
+            for region in relaxed_regions:
+                raw = region.get("text", "").strip()
+                norm_text = re.sub(r"\s+", "", raw).upper()
+                # relaxed heuristics: contains 'P-' or pattern like '300P' or 'P' followed by digits
+                if "P-" in norm_text or re.search(r"P\d|P-?\d", norm_text) or re.search(r"\d{3}-P-", norm_text):
+                    region["text"] = norm_text
+                    region["type"] = "pipe_candidate"
+                    # mark low confidence for later filtering
+                    region["confidence"] = float(region.get("confidence", 0.3))
+                    pipe_labels.append(region)
+
         # If no pipe labels found and a VLM labeler is provided, generate candidate
         # crops around intersections and ask VLM to label them.
         if not pipe_labels and vlm_labeler is not None:
             logger.info("No OCR pipe labels found — running VLM labeler on candidates")
             # Create candidate crops around intersections (small bbox around each point)
-            cand_size_w = 200
-            cand_size_h = 60
+            # Increase candidate crop size to capture labels with offsets
+            cand_size_w = 400
+            cand_size_h = 140
             h, w = image.shape[:2]
             for (cx, cy) in intersections:
                 x1 = int(max(0, cx - cand_size_w // 2))
