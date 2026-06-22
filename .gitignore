@@ -1,0 +1,17 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.json
+logs/
+install_stdout.txt
+results*.json
+src/__pycache__/
+src/agents/__pycache__/
+src/graph/__pycache__/
+src/ocr/__pycache__/
+src/utils/__pycache__/
+src/vision/__pycache__/

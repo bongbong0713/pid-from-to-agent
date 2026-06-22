@@ -5,7 +5,7 @@ import logging
 import json
 from datetime import datetime
 from pathlib import Path
-from python_json_logger import jsonlogger
+from pythonjsonlogger import jsonlogger
 
 
 def setup_logger(

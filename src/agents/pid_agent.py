@@ -12,7 +12,7 @@ import time
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
-from langgraph.graph import START
+from langgraph.graph.state import START
 
 from src.utils.logger import setup_logger
 from src.ocr.paddle_ocr import PaddleOCRExtractor
@@ -103,57 +103,50 @@ class PIDAgent:
             error: Optional[str] = None
 
         # Define workflow nodes
-        def load_image_node(state: AgentState) -> AgentState:
+        def load_image_node(state: AgentState) -> dict:
             """Load and preprocess image."""
             try:
                 logger.info(f"Loading image: {state.image_path}")
-                image = ImagePreprocessor.load_image(state.image_path)
-                state.image = image  # Store for later use
-                return state
+                _image = ImagePreprocessor.load_image(state.image_path)
+                # Do not store raw image in the Pydantic state model; return no-op update
+                return {}
             except Exception as e:
                 logger.error(f"Error loading image: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def ocr_node(state: AgentState) -> AgentState:
+        def ocr_node(state: AgentState) -> dict:
             """Extract text using OCR."""
             try:
                 logger.info("Running OCR extraction")
                 ocr_results = self.ocr_extractor.extract_text(state.image_path)
-                state.ocr_results = ocr_results
-                return state
+                return {"ocr_results": ocr_results}
             except Exception as e:
                 logger.error(f"Error in OCR: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def equipment_detection_node(state: AgentState) -> AgentState:
+        def equipment_detection_node(state: AgentState) -> dict:
             """Detect equipment labels."""
             try:
                 logger.info("Detecting equipment")
                 equipment = self.equipment_detector.detect_equipment(state.image_path)
-                state.equipment = equipment
-                return state
+                return {"equipment": equipment}
             except Exception as e:
                 logger.error(f"Error in equipment detection: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def pipe_detection_node(state: AgentState) -> AgentState:
+        def pipe_detection_node(state: AgentState) -> dict:
             """Detect pipes and pipe labels."""
             try:
                 logger.info("Detecting pipes and pipe labels")
                 image = ImagePreprocessor.load_image(state.image_path)
                 pipes = self.pipe_detector.detect_pipes(image, state.image_path)
-                state.pipes = pipes
                 logger.info(f"Detected {len(pipes.get('pipe_labels', []))} pipe labels")
-                return state
+                return {"pipes": pipes}
             except Exception as e:
                 logger.error(f"Error in pipe detection: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def graph_construction_node(state: AgentState) -> AgentState:
+        def graph_construction_node(state: AgentState) -> dict:
             """Build graph from detected elements."""
             try:
                 logger.info("Building graph")
@@ -165,36 +158,34 @@ class PIDAgent:
                         state.pipes.get("pipe_labels", []),
                     )
                     self.tracer = PIDTracer(self.graph_builder.graph)
-                    state.graph = self.graph_builder.to_dict()
-                    logger.info(f"Graph: {len(state.graph['nodes'])} nodes, {len(state.graph['edges'])} edges")
-                return state
+                    graph_dict = self.graph_builder.to_dict()
+                    logger.info(f"Graph: {len(graph_dict['nodes'])} nodes, {len(graph_dict['edges'])} edges")
+                    return {"graph": graph_dict}
+                return {}
             except Exception as e:
                 logger.error(f"Error in graph construction: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def tracing_node(state: AgentState) -> AgentState:
+        def tracing_node(state: AgentState) -> dict:
             """Trace pipe connections."""
             try:
                 logger.info(f"Tracing pipe: {state.target_pipe}")
                 if self.tracer:
                     trace_result = self.tracer.trace_pipe_connections(state.target_pipe)
-                    state.trace_result = trace_result
                 else:
-                    state.trace_result = {"error": "Tracer not initialized"}
-                return state
+                    trace_result = {"error": "Tracer not initialized"}
+                return {"trace_result": trace_result}
             except Exception as e:
                 logger.error(f"Error in tracing: {e}")
-                state.error = str(e)
-                return state
+                return {"error": str(e)}
 
-        def output_node(state: AgentState) -> AgentState:
+        def output_node(state: AgentState) -> dict:
             """Generate final output."""
             try:
                 logger.info("Generating output")
 
                 if state.error:
-                    state.result = {
+                    result = {
                         "pipe": state.target_pipe,
                         "from": "Unknown",
                         "to": "Unknown",
@@ -202,7 +193,7 @@ class PIDAgent:
                         "error": state.error,
                     }
                 elif state.trace_result:
-                    state.result = {
+                    result = {
                         "pipe": state.trace_result.get("pipe", state.target_pipe),
                         "from": state.trace_result.get("from", "Unknown"),
                         "to": state.trace_result.get("to", "Unknown"),
@@ -211,24 +202,25 @@ class PIDAgent:
                         "source": state.trace_result.get("source", "unknown"),
                     }
                 else:
-                    state.result = {
+                    result = {
                         "pipe": state.target_pipe,
                         "from": "Unknown",
                         "to": "Unknown",
                         "confidence": 0.0,
                     }
 
-                return state
+                return {"result": result}
             except Exception as e:
                 logger.error(f"Error in output: {e}")
-                state.result = {
-                    "pipe": state.target_pipe,
-                    "from": "Unknown",
-                    "to": "Unknown",
-                    "confidence": 0.0,
-                    "error": str(e),
+                return {
+                    "result": {
+                        "pipe": state.target_pipe,
+                        "from": "Unknown",
+                        "to": "Unknown",
+                        "confidence": 0.0,
+                        "error": str(e),
+                    }
                 }
-                return state
 
         # Build graph
         workflow = StateGraph(AgentState)
@@ -241,8 +233,12 @@ class PIDAgent:
         workflow.add_node("tracing", tracing_node)
         workflow.add_node("output", output_node)
 
+        # Set the workflow entry point to the first real node
+        workflow.set_entry_point("load_image")
+
         # Add edges
-        workflow.add_edge(START, "load_image")
+        # StateGraph injects the START node and routes input to the entry point,
+        # so we don't add a START node or edge here.
         workflow.add_edge("load_image", "ocr")
         workflow.add_edge("ocr", "equipment_detection")
         workflow.add_edge("equipment_detection", "pipe_detection")
@@ -250,6 +246,8 @@ class PIDAgent:
         workflow.add_edge("graph_construction", "tracing")
         workflow.add_edge("tracing", "output")
         workflow.add_edge("output", END)
+
+        # Do not connect output back to START (avoids infinite loops)
 
         return workflow.compile()
 

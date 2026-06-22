@@ -81,6 +81,13 @@ class EquipmentDetector:
 
         label = label.strip().upper()
 
+        # Repair common OCR issues: leading dash or digits-only (e.g., "-3118" -> "E-3118")
+        import re
+        if re.match(r"^-\d+$", label):
+            label = "E" + label
+        elif re.match(r"^\d{3,}$", label):
+            label = "E-" + label
+
         for equipment_type, patterns in self.EQUIPMENT_PATTERNS.items():
             for pattern in patterns:
                 if re.match(pattern, label):

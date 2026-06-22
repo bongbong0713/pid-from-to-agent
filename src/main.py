@@ -1,10 +1,16 @@
 """Main entry point for P&ID FROM-TO Agent."""
 
 import os
+import sys
 import json
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Ensure the project root is on sys.path when running src/main.py directly.
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from src.agents.pid_agent import PIDAgent
 from src.utils.logger import setup_logger

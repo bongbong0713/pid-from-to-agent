@@ -94,9 +94,17 @@ class PipeDetector:
             True if text matches a pipe label pattern
         """
         text = text.strip().upper()
+
+        # Try direct pattern match first
         for pattern in self.PIPE_LABEL_PATTERNS:
             if re.match(pattern, text, re.IGNORECASE):
                 return True
+
+        # Fallback: tolerate OCR errors like missing leading groups or spaces
+        cleaned = re.sub(r"\s+", "", text)
+        if re.search(r"P-\d+", cleaned):
+            return True
+
         return False
 
     def detect_edges(self, image: np.ndarray) -> np.ndarray:
