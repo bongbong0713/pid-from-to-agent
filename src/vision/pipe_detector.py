@@ -282,6 +282,7 @@ class PipeDetector:
         image: np.ndarray,
         image_path: str = None,
         vlm_labeler: callable = None,
+        use_ocr: bool = True,
     ) -> Dict[str, Any]:
         """
         Complete pipe detection pipeline.
@@ -309,9 +310,9 @@ class PipeDetector:
         # Get edges for visualization
         edges = self.detect_edges(preprocessed)
 
-        # Detect pipe labels via OCR first
+        # Detect pipe labels via OCR first (optional)
         pipe_labels = []
-        if image_path:
+        if use_ocr and image_path:
             pipe_labels = self.detect_pipe_labels(image_path)
 
         # If OCR found nothing, retry with a lower confidence and include
@@ -336,7 +337,7 @@ class PipeDetector:
 
         # If no pipe labels found and a VLM labeler is provided, generate candidate
         # crops around intersections and ask VLM to label them.
-        if not pipe_labels and vlm_labeler is not None:
+        if (not pipe_labels) and vlm_labeler is not None:
             logger.info("No OCR pipe labels found — running VLM labeler on candidates")
             # Create candidate crops around intersections (small bbox around each point)
             # Increase candidate crop size to capture labels with offsets

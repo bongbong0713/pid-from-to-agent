@@ -80,6 +80,8 @@ class PIDAgent:
         self.tracer = None
         # Optional VLM labeler callable: fn(crop_image: np.ndarray) -> {"label": str, "confidence": float}
         self.vlm_labeler = None
+        # Whether to use OCR for pipe label detection. Can be disabled to force VLM-only labeling.
+        self.use_ocr_for_pipes = True
 
         # Build workflow
         self.workflow = self._build_workflow()
@@ -143,7 +145,12 @@ class PIDAgent:
                 image = ImagePreprocessor.load_image(state.image_path)
                 # Pass optional VLM labeler if configured on the agent
                 vlm_labeler = getattr(self, "vlm_labeler", None)
-                pipes = self.pipe_detector.detect_pipes(image, state.image_path, vlm_labeler=vlm_labeler)
+                pipes = self.pipe_detector.detect_pipes(
+                    image,
+                    state.image_path,
+                    vlm_labeler=vlm_labeler,
+                    use_ocr=self.use_ocr_for_pipes,
+                )
                 logger.info(f"Detected {len(pipes.get('pipe_labels', []))} pipe labels")
                 return {"pipes": pipes}
             except Exception as e:
@@ -263,6 +270,14 @@ class PIDAgent:
         a dict: {"label": "300-P-...", "confidence": 0.0-1.0} or None.
         """
         self.vlm_labeler = fn
+
+    def set_use_ocr_for_pipes(self, flag: bool):
+        """Enable or disable OCR for pipe label detection.
+
+        Args:
+            flag: True to use OCR, False to skip OCR and rely on VLM
+        """
+        self.use_ocr_for_pipes = bool(flag)
 
     def identify_pipe_from_to(
         self,
