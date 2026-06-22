@@ -138,10 +138,12 @@ def vlm_labeler_fallback_ocr(crop: np.ndarray) -> Optional[Dict[str, Any]]:
 def get_default_vlm_labeler() -> callable:
     """Return a VLM labeler callable: prefer Gemini if available, else fallback OCR."""
     api_key = os.getenv('GOOGLE_API_KEY')
-    if api_key and ChatGoogleGenerativeAI is not None:
+    # Only prefer the real Gemini VLM when explicitly enabled via env var.
+    use_real = os.getenv('USE_REAL_VLM', '0') in ('1', 'true', 'True')
+    if use_real and api_key and ChatGoogleGenerativeAI is not None:
         def fn(crop: np.ndarray):
             return vlm_labeler_gemini(crop)
         return fn
 
-    # fallback
+    # fallback to deterministic OCR-based labeler
     return vlm_labeler_fallback_ocr

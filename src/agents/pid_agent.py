@@ -87,7 +87,11 @@ class PIDAgent:
             from src.agents.vlm_labeler import get_default_vlm_labeler
 
             self.vlm_labeler = get_default_vlm_labeler()
-            logger.info(f"Default VLM labeler registered: {self.vlm_labeler.__name__}")
+            try:
+                name = getattr(self.vlm_labeler, '__name__', repr(self.vlm_labeler))
+                logger.info(f"Default VLM labeler registered: {name}")
+            except Exception:
+                logger.info("Default VLM labeler registered")
         except Exception:
             logger.info("No default VLM labeler registered")
 
