@@ -78,6 +78,8 @@ class PIDAgent:
         self.equipment_detector = EquipmentDetector()
         self.graph_builder = GraphBuilder()
         self.tracer = None
+        # Optional VLM labeler callable: fn(crop_image: np.ndarray) -> {"label": str, "confidence": float}
+        self.vlm_labeler = None
 
         # Build workflow
         self.workflow = self._build_workflow()
@@ -139,7 +141,9 @@ class PIDAgent:
             try:
                 logger.info("Detecting pipes and pipe labels")
                 image = ImagePreprocessor.load_image(state.image_path)
-                pipes = self.pipe_detector.detect_pipes(image, state.image_path)
+                # Pass optional VLM labeler if configured on the agent
+                vlm_labeler = getattr(self, "vlm_labeler", None)
+                pipes = self.pipe_detector.detect_pipes(image, state.image_path, vlm_labeler=vlm_labeler)
                 logger.info(f"Detected {len(pipes.get('pipe_labels', []))} pipe labels")
                 return {"pipes": pipes}
             except Exception as e:
@@ -250,6 +254,15 @@ class PIDAgent:
         # Do not connect output back to START (avoids infinite loops)
 
         return workflow.compile()
+
+    def set_vlm_labeler(self, fn):
+        """
+        Register a VLM labeler callable for hybrid labeling.
+
+        The callable should accept a cropped BGR image (numpy array) and return
+        a dict: {"label": "300-P-...", "confidence": 0.0-1.0} or None.
+        """
+        self.vlm_labeler = fn
 
     def identify_pipe_from_to(
         self,

@@ -281,6 +281,7 @@ class PipeDetector:
         self,
         image: np.ndarray,
         image_path: str = None,
+        vlm_labeler: callable = None,
     ) -> Dict[str, Any]:
         """
         Complete pipe detection pipeline.
@@ -308,10 +309,43 @@ class PipeDetector:
         # Get edges for visualization
         edges = self.detect_edges(preprocessed)
 
-        # Detect pipe labels
+        # Detect pipe labels via OCR first
         pipe_labels = []
         if image_path:
             pipe_labels = self.detect_pipe_labels(image_path)
+
+        # If no pipe labels found and a VLM labeler is provided, generate candidate
+        # crops around intersections and ask VLM to label them.
+        if not pipe_labels and vlm_labeler is not None:
+            logger.info("No OCR pipe labels found — running VLM labeler on candidates")
+            # Create candidate crops around intersections (small bbox around each point)
+            cand_size_w = 200
+            cand_size_h = 60
+            h, w = image.shape[:2]
+            for (cx, cy) in intersections:
+                x1 = int(max(0, cx - cand_size_w // 2))
+                y1 = int(max(0, cy - cand_size_h // 2))
+                x2 = int(min(w, cx + cand_size_w // 2))
+                y2 = int(min(h, cy + cand_size_h // 2))
+                crop = image[y1:y2, x1:x2]
+                try:
+                    vlm_res = vlm_labeler(crop)
+                except Exception as e:
+                    logger.error(f"VLM labeler error: {e}")
+                    vlm_res = None
+
+                if vlm_res and isinstance(vlm_res, dict):
+                    label = vlm_res.get("label")
+                    conf = float(vlm_res.get("confidence", 0.0))
+                    if label and conf >= 0.3:
+                        # Build region dict similar to OCR output
+                        region = {
+                            "text": label.strip().upper(),
+                            "bbox": {"x_min": x1, "y_min": y1, "x_max": x2, "y_max": y2, "center_x": (x1 + x2) / 2, "center_y": (y1 + y2) / 2},
+                            "confidence": conf,
+                        }
+                        region["type"] = "pipe"
+                        pipe_labels.append(region)
 
         return {
             "lines": lines,
