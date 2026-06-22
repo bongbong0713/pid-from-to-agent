@@ -82,6 +82,14 @@ class PIDAgent:
         self.vlm_labeler = None
         # Whether to use OCR for pipe label detection. Can be disabled to force VLM-only labeling.
         self.use_ocr_for_pipes = True
+        # Register a default VLM labeler if available
+        try:
+            from src.agents.vlm_labeler import get_default_vlm_labeler
+
+            self.vlm_labeler = get_default_vlm_labeler()
+            logger.info(f"Default VLM labeler registered: {self.vlm_labeler.__name__}")
+        except Exception:
+            logger.info("No default VLM labeler registered")
 
         # Build workflow
         self.workflow = self._build_workflow()
