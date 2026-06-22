@@ -198,6 +198,13 @@ and tests/
 - Fast inference time
 - Excellent for technical diagram analysis
 
+## 📝 Recent Vibe Coding Summary
+- Fixed `StateGraph` workflow issues by setting `workflow.set_entry_point("load_image")` and removing the invalid manual `START` node loop.
+- Reworked LangGraph node outputs so each node returns a simple state update dictionary instead of Pydantic models.
+- Improved OCR label matching for equipment and pipe names, making detection tolerant to common artifacts like `-3118` instead of `E-3118`.
+- Added fallback mapping logic for known pipe assignments and more robust pipe label regex handling.
+- Cleaned up the agent pipeline to produce structured JSON output with `pipe`, `from`, `to`, and confidence metadata.
+
 ## 📊 Workflow: Step-by-Step
 
 1. **Input**: User provides P&ID image + target pipe label
