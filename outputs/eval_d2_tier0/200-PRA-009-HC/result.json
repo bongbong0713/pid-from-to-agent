@@ -1,0 +1,30 @@
+{
+  "pipe": "200-PRA-009-HC",
+  "from": "SP01",
+  "to": "MK01S",
+  "confidence": 1.0,
+  "candidates": [
+    "MK01S",
+    "SP01",
+    "Off-page"
+  ],
+  "reasoning": "The pipe from SP01 directly connects to MK01S without any inline valves or instruments obstructing the path.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "200-PRA-009-HC",
+  "match_score": 1.0,
+  "label_xy": [
+    913.0,
+    526.0
+  ],
+  "crop_origin": [
+    363,
+    0
+  ],
+  "crop_size": 1100,
+  "ok_from": false,
+  "ok_to": false
+}

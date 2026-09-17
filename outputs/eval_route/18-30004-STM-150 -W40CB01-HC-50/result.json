@@ -1,0 +1,33 @@
+{
+  "pipe": "18-30004-STM-150 -W40CB01-HC-50",
+  "from": "W-0001",
+  "to": "Cond.",
+  "confidence": 1.0,
+  "candidates": [
+    "P-1001",
+    "P-1002",
+    "PM-1001",
+    "PM-1002",
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The pipe 18-30004-STM-150-W40CB01-HC-50 originates from W-0001 and flows towards the 'Cond.' endpoint.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "18-30004-STM-150-W40CB01-HC-50",
+  "match_score": 1.0,
+  "label_xy": [
+    1810.0,
+    997.5
+  ],
+  "crop_origin": [
+    801,
+    297
+  ],
+  "crop_size": 1400,
+  "ok_from": true,
+  "ok_to": true
+}

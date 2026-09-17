@@ -1,0 +1,31 @@
+{
+  "pipe": "100-Pra-010-PP",
+  "from": "SC02",
+  "to": "MK01S",
+  "confidence": 1.0,
+  "candidates": [
+    "MK01S",
+    "SC02",
+    "SP01",
+    "Off-page"
+  ],
+  "reasoning": "The red box highlights the pipe 100-Pra-010-PP, which originates from SC02 and flows into MK01S.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "100-Pra-010-PP",
+  "match_score": 1.0,
+  "label_xy": [
+    1297.0,
+    160.0
+  ],
+  "crop_origin": [
+    747,
+    0
+  ],
+  "crop_size": 1100,
+  "ok_from": false,
+  "ok_to": false
+}

@@ -1,0 +1,30 @@
+{
+  "pipe": "17-30002-NPH-150 -W10CB01-HC-50",
+  "from": "B-0001",
+  "to": "W-0001",
+  "confidence": 1.0,
+  "candidates": [
+    "B-0001",
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The pipe 17-30002-NPH-150-W10CB01-HC-50 originates from the bottom of the Naptha Tank B-0001 and flows into the top of the vessel W-0001.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "17-30002-NPH-150-W10CB01-HC-50",
+  "match_score": 1.0,
+  "label_xy": [
+    1071.0,
+    504.5
+  ],
+  "crop_origin": [
+    371,
+    0
+  ],
+  "crop_size": 1400,
+  "ok_from": false,
+  "ok_to": false
+}

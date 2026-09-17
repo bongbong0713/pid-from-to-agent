@@ -15,3 +15,18 @@ src/graph/__pycache__/
 src/ocr/__pycache__/
 src/utils/__pycache__/
 src/vision/__pycache__/
+
+!data/ground_truth*.json
+
+
+
+# Experiment artifacts stay local; the published result sets are listed.
+# Exclude the CONTENTS, not the directory - git cannot re-include a file
+# whose parent directory is itself excluded.
+outputs/*
+!outputs/eval_route/
+!outputs/eval_route/**
+!outputs/eval_d2_tier0/
+!outputs/eval_d2_tier0/**
+!outputs/eval_agent_v2/
+!outputs/eval_agent_v2/**

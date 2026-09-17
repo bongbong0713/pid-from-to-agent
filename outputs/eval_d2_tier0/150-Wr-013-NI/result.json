@@ -1,0 +1,30 @@
+{
+  "pipe": "150-Wr-013-NI",
+  "from": "MK01A",
+  "to": "SC02",
+  "confidence": 1.0,
+  "candidates": [
+    "MK01S",
+    "SC02",
+    "Off-page"
+  ],
+  "reasoning": "The pipe line 150-Wr-013-NI originates from MK01A and flows directly into SC02.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "150-Wr-013-NI",
+  "match_score": 1.0,
+  "label_xy": [
+    1830.0,
+    615.0
+  ],
+  "crop_origin": [
+    1101,
+    65
+  ],
+  "crop_size": 1100,
+  "ok_from": false,
+  "ok_to": true
+}

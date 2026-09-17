@@ -1,0 +1,29 @@
+{
+  "pipe": "18-30003-STM-150 -W40CB01-HC-100",
+  "from": "W-0001",
+  "to": "Off-page",
+  "confidence": 0.9,
+  "candidates": [
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The pipe labeled '18-30003-STM-150-W40CB01-HC-100' exits the crop on the right side and does not connect to any visible equipment.",
+  "leaves_crop": true,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "18-30603-STM-150-W40CB01-HC-100",
+  "match_score": 0.968,
+  "label_xy": [
+    1775.5,
+    668.5
+  ],
+  "crop_origin": [
+    801,
+    0
+  ],
+  "crop_size": 1400,
+  "ok_from": false,
+  "ok_to": false
+}

@@ -1,0 +1,32 @@
+{
+  "pipe": "16-20001-NPH-250 -W10CB01-HC-50",
+  "from": "B-0001",
+  "to": "P-1001",
+  "confidence": 1.0,
+  "candidates": [
+    "B-0001",
+    "P-1001",
+    "PM-1001",
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The orange line traces from the naptha tank B-0001 to the pump P-1001.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": true,
+  "route_area": 10343,
+  "arrows_on_route": 1,
+  "matched_text": "16-20001-NPH-250-W10CB01-HC-50",
+  "match_score": 1.0,
+  "label_xy": [
+    731.0,
+    1278.5
+  ],
+  "crop_origin": [
+    31,
+    301
+  ],
+  "crop_size": 1400,
+  "ok_from": true,
+  "ok_to": true
+}

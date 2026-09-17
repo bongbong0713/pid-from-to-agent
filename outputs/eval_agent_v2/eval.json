@@ -1,0 +1,85 @@
+{
+  "n": 7,
+  "from": 4,
+  "to": 2,
+  "both": 1,
+  "rows": [
+    {
+      "pipe": "10-LCV-11010-20000-NPH-250 -W10CB01-HC-50",
+      "located": true,
+      "from": "B-0001",
+      "to": "B-0001",
+      "steps": 1,
+      "views": 1,
+      "ok_from": false,
+      "ok_to": true,
+      "error": null
+    },
+    {
+      "pipe": "19-30001-NPH-200 -W40CB01-HC-50",
+      "located": true,
+      "from": "W-0001",
+      "to": "B-0001",
+      "steps": 1,
+      "views": 1,
+      "ok_from": true,
+      "ok_to": false,
+      "error": null
+    },
+    {
+      "pipe": "17-30002-NPH-150 -W10CB01-HC-50",
+      "located": true,
+      "from": "B-0001",
+      "to": "W-0001",
+      "steps": 8,
+      "views": 3,
+      "ok_from": false,
+      "ok_to": false,
+      "error": null
+    },
+    {
+      "pipe": "18-30003-STM-150 -W40CB01-HC-100",
+      "located": true,
+      "from": "W-0001",
+      "to": "STM",
+      "steps": 2,
+      "views": 2,
+      "ok_from": false,
+      "ok_to": false,
+      "error": null
+    },
+    {
+      "pipe": "18-30004-STM-150 -W40CB01-HC-50",
+      "located": true,
+      "from": "W-0001",
+      "to": "P-1001",
+      "steps": 4,
+      "views": 2,
+      "ok_from": true,
+      "ok_to": false,
+      "error": null
+    },
+    {
+      "pipe": "16-20001-NPH-250 -W10CB01-HC-50",
+      "located": true,
+      "from": "B-0001",
+      "to": "P-1001",
+      "steps": 1,
+      "views": 1,
+      "ok_from": true,
+      "ok_to": true,
+      "error": null
+    },
+    {
+      "pipe": "16-20002-NPH-200 -W10CB01-HC-50",
+      "located": true,
+      "from": "P-1001",
+      "to": "P-1002",
+      "steps": 1,
+      "views": 1,
+      "ok_from": true,
+      "ok_to": false,
+      "error": null
+    }
+  ]
+}

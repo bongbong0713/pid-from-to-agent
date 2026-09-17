@@ -1,0 +1,29 @@
+{
+  "pipe": "10-LCV-11010-20000-NPH-250 -W10CB01-HC-50",
+  "from": "Tank Farm",
+  "to": "B-0001",
+  "confidence": 1.0,
+  "candidates": [
+    "B-0001",
+    "Off-page"
+  ],
+  "reasoning": "The orange line traces from the Tank Farm to the Naptha Tank B-0001, following the flow direction indicated by the red arrowheads.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": true,
+  "route_area": 21992,
+  "arrows_on_route": 2,
+  "matched_text": "10-LCV-11010-20000-NPH-250-W10CB01-HC-50",
+  "match_score": 1.0,
+  "label_xy": [
+    323.0,
+    105.5
+  ],
+  "crop_origin": [
+    0,
+    0
+  ],
+  "crop_size": 1400,
+  "ok_from": true,
+  "ok_to": true
+}

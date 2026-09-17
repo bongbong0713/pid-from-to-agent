@@ -1,0 +1,30 @@
+{
+  "pipe": "19-30001-NPH-200 -W40CB01-HC-50",
+  "from": "B-0001",
+  "to": "W-0001",
+  "confidence": 1.0,
+  "candidates": [
+    "B-0001",
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The orange line traces from the Naphta Tank (B-0001) to the Water Tank (W-0001). The flow direction is indicated by the red circle arrowheads.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": true,
+  "route_area": 10253,
+  "arrows_on_route": 1,
+  "matched_text": "18-30001-NPH-200-W40CB01-HC-50",
+  "match_score": 0.967,
+  "label_xy": [
+    1400.0,
+    152.5
+  ],
+  "crop_origin": [
+    700,
+    0
+  ],
+  "crop_size": 1400,
+  "ok_from": false,
+  "ok_to": false
+}

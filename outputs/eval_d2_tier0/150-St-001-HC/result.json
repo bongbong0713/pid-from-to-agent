@@ -1,0 +1,30 @@
+{
+  "pipe": "150-St-001-HC",
+  "from": "MP02S",
+  "to": "Off-page",
+  "confidence": 0.8,
+  "candidates": [
+    "MP02S",
+    "SP01",
+    "Off-page"
+  ],
+  "reasoning": "The pipe labeled '150-St-001-HC' originates from MP02S and exits the crop towards the right side.",
+  "leaves_crop": true,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "150-St-001-HC",
+  "match_score": 1.0,
+  "label_xy": [
+    498.0,
+    780.0
+  ],
+  "crop_origin": [
+    0,
+    230
+  ],
+  "crop_size": 1100,
+  "ok_from": false,
+  "ok_to": false
+}

@@ -1,0 +1,30 @@
+{
+  "pipe": "50-Pra-011-NI",
+  "from": "MK01S",
+  "to": "SC02",
+  "confidence": 1.0,
+  "candidates": [
+    "MK01S",
+    "SC02",
+    "Off-page"
+  ],
+  "reasoning": "The pipe line 50-Pra-011-NI originates from MK01S and flows directly into SC02.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": false,
+  "route_area": 0,
+  "arrows_on_route": 0,
+  "matched_text": "50-Pra-011-NI",
+  "match_score": 1.0,
+  "label_xy": [
+    1786.0,
+    482.0
+  ],
+  "crop_origin": [
+    1101,
+    0
+  ],
+  "crop_size": 1100,
+  "ok_from": false,
+  "ok_to": false
+}

@@ -1,0 +1,38 @@
+{
+  "image": "data/sample_pid2.jpg",
+  "source": "Wikimedia Commons, File:P&ID.JPG (CC BY-SA 3.0), 2201x1614. Bewdley Technical Services Ltd / Alistair Chemicals, dwg 190A.1.002",
+  "note": "Second drawing, used to check whether the numbers hold outside the first one. Its line numbers are only 6-8px tall and tesseract reads 2 of 14, so each case carries an explicit label position 'at': OCR is bypassed and only the crop-and-reason half of the pipeline is measured. Positions were read off a coordinate grid by hand; FROM/TO likewise, with utility directions (steam supply, cooling water supply/return, condensate) taken from service code as the drawing shows no flow arrows on those runs.",
+  "cases": [
+    {"pipe": "80-St-001-HC",   "at": [288, 780],
+     "from": ["Off-page", "Vapore vivo"], "to": ["SC 01", "SC01"]},
+
+    {"pipe": "150-St-001-HC",  "at": [498, 780],
+     "from": ["Off-page", "Vapore vivo"], "to": ["SC 01", "SC01"]},
+
+    {"pipe": "25-St-002-HC",   "at": [500, 921],
+     "from": ["Off-page", "Condensa pura"],
+     "to": ["MP 02 A", "MP 02 S", "MP02A", "MP02S", "MP 02"]},
+
+    {"pipe": "50-St-003-HC",   "at": [762, 970],
+     "from": ["MP 02 A", "MP 02 S", "MP02A", "MP02S", "MP 02"],
+     "to": ["SC 01", "SC01"]},
+
+    {"pipe": "200-PRA-009-HC", "at": [913, 526],
+     "from": ["SC 01", "SC01"], "to": ["SP 01", "SP01"]},
+
+    {"pipe": "100-Pra-010-PP", "at": [1297, 160],
+     "from": ["SP 01", "SP01"], "to": ["SC 02", "SC02"]},
+
+    {"pipe": "50-Pra-012-NI",  "at": [1586, 436],
+     "from": ["MK 01 A", "MK01A", "MK 01"], "to": ["SC 02", "SC02"]},
+
+    {"pipe": "50-Pra-011-NI",  "at": [1786, 482],
+     "from": ["SC 02", "SC02"], "to": ["Off-page", "Condensa di processo"]},
+
+    {"pipe": "150-Wr-013-NI",  "at": [1830, 615],
+     "from": ["Off-page", "Acqua di raffreddamento"], "to": ["SC 02", "SC02"]},
+
+    {"pipe": "150-Wr-014-NI",  "at": [1830, 708],
+     "from": ["SC 02", "SC02"], "to": ["Off-page", "Ritorno acqua di raffreddamento"]}
+  ]
+}

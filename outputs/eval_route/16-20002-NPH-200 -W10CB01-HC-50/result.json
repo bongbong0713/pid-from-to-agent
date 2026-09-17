@@ -1,0 +1,34 @@
+{
+  "pipe": "16-20002-NPH-200 -W10CB01-HC-50",
+  "from": "W-0001",
+  "to": "P-1001",
+  "confidence": 1.0,
+  "candidates": [
+    "B-0001",
+    "P-1001",
+    "P-1002",
+    "PM-1001",
+    "PM-1002",
+    "W-0001",
+    "Off-page"
+  ],
+  "reasoning": "The orange line traces from the W-0001 vessel to the P-1001 pump.",
+  "leaves_crop": false,
+  "source": "tier0_local",
+  "route_found": true,
+  "route_area": 30999,
+  "arrows_on_route": 2,
+  "matched_text": "16-20002-NPH-200-W10CB01-HC-50",
+  "match_score": 1.0,
+  "label_xy": [
+    1200.0,
+    1268.0
+  ],
+  "crop_origin": [
+    500,
+    301
+  ],
+  "crop_size": 1400,
+  "ok_from": false,
+  "ok_to": false
+}
